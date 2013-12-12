@@ -27,7 +27,7 @@ namespace tesseract {
     uint32_t* _pixels;
     bool _setOnlyNonDebugParams;
     tesseract::OcrEngineMode _ocrEngineMode;
-    
+
     NSArray* _configFilenames;
 }
 
@@ -49,7 +49,7 @@ namespace tesseract {
     if (self) {
         _dataPath = dataPath;
         _language = language;
-        
+
         if (mode) {
             if ([mode isEqualToString:OcrEngineModeTesseractOnly]) {
                 _ocrEngineMode = tesseract::OEM_TESSERACT_ONLY;
@@ -63,24 +63,24 @@ namespace tesseract {
         } else {
             _ocrEngineMode = tesseract::OEM_DEFAULT;
         }
-        
+
         _configFilenames = configFilenames;
-        
+
         if (variables) {
             _variables = [variables mutableCopyWithZone:NULL];
         } else {
             _variables = [[NSMutableDictionary alloc] init];
         }
-        
+
         if (setOnlyNonDebugParams) {
             _setOnlyNonDebugParams = true;
         } else {
             _setOnlyNonDebugParams = false;
         }
-        
+
         [self copyDataToDocumentsDirectory];
         _tesseract = new tesseract::TessBaseAPI();
-        
+
         BOOL success = [self initEngine];
         if (!success) {
             return NO;
@@ -103,7 +103,7 @@ namespace tesseract {
     int configs_size = 0;
     GenericVector<STRING> keys;
     GenericVector<STRING> values;
-    
+
     if (_configFilenames && _configFilenames.count > 0) {
         configs = (char**) malloc(_configFilenames.count * sizeof(char*));
         for (; configs_size < _configFilenames.count; configs_size++) {
@@ -111,12 +111,12 @@ namespace tesseract {
             strncpy(configs[configs_size], [_configFilenames[configs_size] UTF8String], ((NSString*)(_configFilenames[configs_size])).length + 1);
         }
     }
-    
+
     for (NSString* key in _variables) {
         keys.push_back([key UTF8String]);
         values.push_back([_variables[key] UTF8String]);
     }
-    
+
     int returnCode = _tesseract->Init(_dataPath ? [_dataPath UTF8String] : NULL,
                                       _language ? [_language UTF8String] : NULL,
                                       _ocrEngineMode,
@@ -131,18 +131,18 @@ namespace tesseract {
         }
         free(configs);
     }
-    
+
     return (returnCode == 0) ? YES : NO;
 }
 
 - (void)copyDataToDocumentsDirectory {
-    
+
     // Useful paths
     NSFileManager *fileManager = [NSFileManager defaultManager];
     NSArray *documentPaths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *documentPath = ([documentPaths count] > 0) ? [documentPaths objectAtIndex:0] : nil;
     NSString *dataPath = [documentPath stringByAppendingPathComponent:_dataPath];
-    
+
     // Copy data in Doc Directory
     if (![fileManager fileExistsAtPath:dataPath]) {
         NSString *bundlePath = [[NSBundle bundleForClass:[self class]] bundlePath];
@@ -152,7 +152,7 @@ namespace tesseract {
             [fileManager copyItemAtPath:tessdataPath toPath:dataPath error:nil];
         }
     }
-    
+
     setenv("TESSDATA_PREFIX", [[documentPath stringByAppendingString:@"/"] UTF8String], 1);
 }
 
@@ -163,7 +163,7 @@ namespace tesseract {
      * _tesseract->SetVariable("language_model_penalty_non_freq_dict_word", "0");
      * _tesseract->SetVariable("language_model_penalty_non_dict_word ", "0");
      */
-    
+
     [_variables setValue:value forKey:key];
     _tesseract->SetVariable([key UTF8String], [value UTF8String]);
 }
@@ -179,7 +179,7 @@ namespace tesseract {
     _language = language;
     int returnCode = [self initEngine];
     if (returnCode != 0) return NO;
-    
+
     /*
      * "WARNING: On changing languages, all Tesseract parameters
      * are reset back to their default values."
@@ -198,6 +198,11 @@ namespace tesseract {
     return [NSString stringWithUTF8String:utf8Text];
 }
 
+- (NSString *)hocrText {
+  char* hocrText = _tesseract->GetHOCRText(0); // int page_number;
+  return [NSString stringWithUTF8String:hocrText];
+}
+
 - (void)clear
 {
     free(_pixels);
@@ -208,33 +213,33 @@ namespace tesseract {
 - (void)setImage:(UIImage *)image
 {
     free(_pixels);
-    
+
     CGSize size = [image size];
     int width = size.width;
     int height = size.height;
-	
+
 	if (width <= 0 || height <= 0) {
 		return;
     }
-	
+
     _pixels = (uint32_t *) malloc(width * height * sizeof(uint32_t));
-    
+
     // Clear the pixels so any transparency is preserved
     memset(_pixels, 0, width * height * sizeof(uint32_t));
-	
+
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-	
+
     // Create a context with RGBA _pixels
     CGContextRef context = CGBitmapContextCreate(_pixels, width, height, 8, width * sizeof(uint32_t), colorSpace,
                                                  kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedLast);
-	
+
     // Paint the bitmap to our context which will fill in the _pixels array
     CGContextDrawImage(context, CGRectMake(0, 0, width, height), [image CGImage]);
-	
+
 	// We're done with the context and color space
     CGContextRelease(context);
     CGColorSpaceRelease(colorSpace);
-    
+
     _tesseract->SetImage((const unsigned char *) _pixels, width, height, sizeof(uint32_t), width * sizeof(uint32_t));
 }
 

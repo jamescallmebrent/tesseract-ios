@@ -68,6 +68,7 @@ extern NSString * const OcrEngineModeDefault;
 - (BOOL)setLanguage:(NSString *)language;
 - (BOOL)recognize;
 - (NSString *)recognizedText;
+- (NSString *)hocrText;
 - (void)clear;
 
 @end
