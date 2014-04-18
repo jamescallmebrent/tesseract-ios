@@ -81,10 +81,7 @@ namespace tesseract {
         [self copyDataToDocumentsDirectory];
         _tesseract = new tesseract::TessBaseAPI();
 
-        BOOL success = [self initEngine];
-        if (!success) {
-            return NO;
-        }
+        [self initEngine];
     }
     return self;
 }
